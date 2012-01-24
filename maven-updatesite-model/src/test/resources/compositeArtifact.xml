@@ -1,0 +1,12 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<?compositeArtifactRepository version='1.0.0'?>
+<repository type="org.eclipse.equinox.internal.p2.metadata.repository.CompositeMetadataRepository" version="1.0.0" name="My Repo">
+  <properties size="2">
+    <property name="p2.compressed" value="true"/>
+    <property name="p2.timestamp" value="1327418315900"/>
+  </properties>
+  <children>
+    <child location="0.0.1"/>
+    <child location="0.0.2"/>
+  </children>
+</repository>
