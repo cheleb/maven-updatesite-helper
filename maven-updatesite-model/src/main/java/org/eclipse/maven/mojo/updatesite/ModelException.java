@@ -10,4 +10,8 @@ public class ModelException extends RuntimeException {
 	public ModelException(String message, Throwable e) {
 		super(message, e);
 	}
+
+	public ModelException(String message) {
+		super(message);
+	}
 }

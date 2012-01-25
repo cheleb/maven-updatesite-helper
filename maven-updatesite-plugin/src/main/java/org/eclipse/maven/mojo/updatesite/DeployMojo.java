@@ -16,72 +16,188 @@ package org.eclipse.maven.mojo.updatesite;
  * limitations under the License.
  */
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import javax.imageio.stream.FileImageInputStream;
+
+import noNamespace.RepositoryDocument;
+
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
+import org.apache.maven.project.MavenProject;
+import org.eclipse.maven.mojo.updatesite.sftp.Sftp;
 
-import com.jcraft.jsch.JSch;
-import com.jcraft.jsch.Session;
-
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.SftpException;
 
 /**
  * Goal which touches a timestamp file.
- *
+ * 
  * @goal deploy
  * 
  * @phase install
  */
-public class DeployMojo
-    extends AbstractMojo
-{
-    /**
-     * Location of the file.
-     * @parameter expression="${project.build.directory}"
-     * @required
-     */
-    private File outputDirectory;
+public class DeployMojo extends AbstractMojo {
 
-    public void execute()
-        throws MojoExecutionException
-    {
-    	
-    	
-    	
-        File f = outputDirectory;
+	/**
+	 * @parameter default-value="${project}"
+	 */
+	private MavenProject mavenProject;
 
-        if ( !f.exists() )
-        {
-            f.mkdirs();
-        }
+	/**
+	 * @parameter
+	 * @required
+	 */
+	private String repositoryName;
 
-        File touch = new File( f, "touch.txt" );
+	/**
+	 * @parameter
+	 * @required
+	 */
+	private String parentURL;
 
-        FileWriter w = null;
-        try
-        {
-            w = new FileWriter( touch );
+	/**
+	 * @parameter
+	 * @required
+	 */
+	private String pass;
 
-            w.write( "touch.txt" );
-        }
-        catch ( IOException e )
-        {
-            throw new MojoExecutionException( "Error creating file " + touch, e );
-        }
-        finally
-        {
-            if ( w != null )
-            {
-                try
-                {
-                    w.close();
-                }
-                catch ( IOException e )
-                {
-                    // ignore
-                }
-            }
-        }
-    }
+	/**
+	 * @parameter default-value="${user.home}/.ssh/known_hosts"
+	 * @required
+	 */
+	private String knownHost;
+
+	/**
+	 * @parameter default-value="${user.home}/.ssh/id_rsa"
+	 * @required
+	 */
+	private String identity;
+
+	/**
+	 * Location of the file.
+	 * 
+	 * @parameter expression="${project.build.directory}/site"
+	 * @required
+	 */
+	private File siteDirectory;
+
+	private ModelHelper modelHelper = new ModelHelper();
+
+	static final Pattern SFTP_PATTERN = Pattern
+			.compile("^sftp://([\\d\\w]+)@([^/]+)(.*)$");
+
+	public void execute() throws MojoExecutionException {
+
+		Matcher matcher = DeployMojo.SFTP_PATTERN.matcher(parentURL);
+		if (!matcher.matches()) {
+			throw new MojoExecutionException(parentURL
+					+ " is not a valid sftp url");
+		}
+		String user = matcher.group(1);
+		String host = matcher.group(2);
+		String parentPath = matcher.group(3);
+
+		Sftp sftp = new Sftp(knownHost, identity);
+
+		try {
+
+			sftp.openSession(user, pass, host);
+
+			boolean newRepo = initRepository(parentPath, sftp);
+
+			String childLocation = initChildLocation(sftp);
+
+			updloadFile(siteDirectory, childLocation, sftp);
+
+			RepositoryDocument repositoryDocument;
+
+			if (newRepo || sftp.fileDoesNotExist("compositeContent.xml")) {
+				repositoryDocument = modelHelper
+						.newRepositoryDocument(repositoryName, ModelHelper.TYPE.ARTIFACT);
+			} else {
+
+				InputStream inputStream = sftp.get("compositeContent.xml");
+
+				repositoryDocument = modelHelper
+						.parseCompositeContent(inputStream);
+			}
+
+			modelHelper.updateChild(repositoryDocument,
+					mavenProject.getVersion());
+
+			sftp.put(modelHelper.getInputStream(repositoryDocument,
+					ModelHelper.TYPE.ARTIFACT), "compositeArtifacts.xml");
+			repositoryDocument.getRepository().setType(ModelHelper.TYPE.METADATA.asString);
+			sftp.put(modelHelper.getInputStream(repositoryDocument,
+					ModelHelper.TYPE.METADATA), "compositeContent.xml");
+
+		} catch (JSchException e) {
+			throw new MojoExecutionException(e.getLocalizedMessage(), e);
+		} catch (SftpException e) {
+			throw new MojoExecutionException(e.getLocalizedMessage(), e);
+		} catch (IOException e) {
+			throw new MojoExecutionException(e.getLocalizedMessage(), e);
+		} finally {
+			sftp.disconnect();
+		}
+
+	}
+
+	private void updloadFile(File folder, String dst, Sftp sftp)
+			throws SftpException, IOException {
+		File[] listFiles = folder.listFiles();
+		for (int i = 0; i < listFiles.length; i++) {
+			File file = listFiles[i];
+			if (".".equals(file.getName()) || "..".equals(file.getName())) {
+				continue;
+			}
+			String path = dst + "/" + file.getName();
+			if (file.isDirectory()) {
+				if (sftp.fileDoesNotExist(path)) {
+					sftp.mkdir(path);
+				}
+				updloadFile(file, path, sftp);
+			} else {
+				InputStream inputStream = new FileInputStream(file);
+				sftp.put(inputStream, path);
+				inputStream.close();
+			}
+
+		}
+
+	}
+
+	protected String initChildLocation(Sftp sftp) throws SftpException {
+		String childLocation = mavenProject.getVersion();
+
+		if (sftp.fileDoesNotExist(childLocation)) {
+			sftp.mkdir(childLocation);
+			getLog().info("Create new child localtion: " + childLocation);
+		} else {
+			sftp.rmtree(childLocation, false);
+		}
+		return childLocation;
+	}
+
+	protected boolean initRepository(String parentPath, Sftp sftp)
+			throws SftpException {
+		sftp.cd(parentPath);
+		boolean newRepo = false;
+		if (sftp.fileDoesNotExist(repositoryName)) {
+			sftp.mkdir(repositoryName);
+			getLog().info("Create new repo: " + repositoryName);
+			newRepo = true;
+		}
+
+		sftp.cd(repositoryName);
+		return newRepo;
+	}
+
 }

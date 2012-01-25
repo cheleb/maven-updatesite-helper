@@ -49,14 +49,23 @@ public class JschTest {
 		}
         
 		c.cd(path);
+		
+		Vector ls2 = c.ls(".");
         
         InputStream inputStream = c.get("compositeContent.xml");
         if(inputStream!=null) {
-        	RepositoryDocument parseCompositeContent = ModelHelper.parseCompositeContent(inputStream);
-        	String name = parseCompositeContent.getRepository().getName();
+        	
+        	ModelHelper modelHelper = new ModelHelper();
+        	
+        	RepositoryDocument repositoryDocument = modelHelper.parseCompositeContent(inputStream);
+        	String name = repositoryDocument.getRepository().getName();
         	System.out.println("name: " + name);
-        	System.out.println(ModelHelper.updateChild(parseCompositeContent, "0.0.1"));
+        	System.out.println(modelHelper.updateChild(repositoryDocument, "0.0.1-SNAPSHOT"));
+        	modelHelper.save(repositoryDocument, ModelHelper.TYPE.ARTIFACT, System.out);
+        	c.put(modelHelper.getInputStream(repositoryDocument, ModelHelper.TYPE.ARTIFACT), "compositeArtifacts.xml");
+        	c.put(modelHelper.getInputStream(repositoryDocument, ModelHelper.TYPE.METADATA), "compositeContent.xml");
         }
+		session.disconnect();
 		
 	}
 }

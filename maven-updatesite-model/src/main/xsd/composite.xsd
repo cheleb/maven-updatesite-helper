@@ -14,7 +14,7 @@
               </xs:complexType>
             </xs:element>
           </xs:sequence>
-          <xs:attribute name="size" type="xs:int" />
+          <xs:attribute name="size" type="xs:int"/>
         </xs:complexType>
       </xs:element>
       <xs:element name="children">
@@ -26,7 +26,7 @@
              </xs:complexType>
             </xs:element>
           </xs:sequence>
-          <xs:attribute name="size" type="xs:int" />
+          <xs:attribute name="size" type="xs:int" default="0"/>
         </xs:complexType>
       </xs:element>
     </xs:sequence>

@@ -11,18 +11,22 @@
     <dependency>
       <groupId>org.apache.maven</groupId>
       <artifactId>maven-plugin-api</artifactId>
-      <version>2.0</version>
+      <version>3.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.maven</groupId>
+      <artifactId>maven-project</artifactId>
+      <version>3.0-alpha-2</version>
     </dependency>
     <dependency>
       <groupId>com.jcraft</groupId>
       <artifactId>jsch</artifactId>
       <version>0.1.45</version>
     </dependency>
-    
     <dependency>
-     <groupId>${project.groupId}</groupId>
-     <artifactId>maven-updatesite-model</artifactId>
-     <version>${project.version}</version>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>maven-updatesite-model</artifactId>
+      <version>${project.version}</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
