@@ -3,7 +3,11 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.eclipse.maven.updatesite</groupId>
   <artifactId>maven-updatesite-model</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <parent>
+    <groupId>org.eclipse.maven</groupId>
+    <artifactId>updatesite</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+  </parent>
   <dependencies>
     <dependency>
       <groupId>org.apache.xmlbeans</groupId>
@@ -33,6 +37,7 @@
         <inherited>true</inherited>
         <configuration>
           <schemaDirectory>src/main/xsd</schemaDirectory>
+         <javaSource>1.5</javaSource>
         </configuration>
       </plugin>
     </plugins>

@@ -18,19 +18,18 @@ package org.eclipse.maven.mojo.updatesite;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import javax.imageio.stream.FileImageInputStream;
 
 import noNamespace.RepositoryDocument;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.settings.Server;
+import org.apache.maven.settings.Settings;
 import org.eclipse.maven.mojo.updatesite.sftp.Sftp;
 
 import com.jcraft.jsch.JSchException;
@@ -61,12 +60,21 @@ public class DeployMojo extends AbstractMojo {
 	 * @required
 	 */
 	private String parentURL;
+	
+	
+	 /** The current user system settings for use in Maven.
+     *
+     * @parameter expression="${settings}"
+     * @required
+     * @readonly
+     */
+    private Settings settings;
 
-	/**
-	 * @parameter
-	 * @required
-	 */
-	private String pass;
+
+    /**
+     * @parameter
+     */
+    private String serverId;
 
 	/**
 	 * @parameter default-value="${user.home}/.ssh/known_hosts"
@@ -90,8 +98,9 @@ public class DeployMojo extends AbstractMojo {
 
 	private ModelHelper modelHelper = new ModelHelper();
 
+
 	static final Pattern SFTP_PATTERN = Pattern
-			.compile("^sftp://([\\d\\w]+)@([^/]+)(.*)$");
+			.compile("^sftp://([^/^:)]+)\\:?(\\d+)?(.*)$");
 
 	public void execute() throws MojoExecutionException {
 
@@ -100,15 +109,36 @@ public class DeployMojo extends AbstractMojo {
 			throw new MojoExecutionException(parentURL
 					+ " is not a valid sftp url");
 		}
-		String user = matcher.group(1);
-		String host = matcher.group(2);
+		String host = matcher.group(1);
+		String portAsString = matcher.group(2);
+		int port;
+		if(portAsString==null) {
+			port=22;
+		}else {
+			port = Integer.parseInt(portAsString);
+		}
 		String parentPath = matcher.group(3);
 
 		Sftp sftp = new Sftp(knownHost, identity);
 
+		Server server = settings.getServer(serverId);
+		if(server==null) {
+			throw new MojoExecutionException("Could not find serverId: \"" + serverId + "\"");
+		}
+		
+		String pass = server.getPassphrase();
+		
+		if(pass ==null) {
+			throw new MojoExecutionException("Passphrase could not be null");
+		}
+		
+		String user = server.getUsername();
+		
+		
+		
 		try {
 
-			sftp.openSession(user, pass, host);
+			sftp.openSession(user, pass, host, port);
 
 			boolean newRepo = initRepository(parentPath, sftp);
 

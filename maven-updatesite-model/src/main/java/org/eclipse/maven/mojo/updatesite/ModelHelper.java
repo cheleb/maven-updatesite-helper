@@ -97,7 +97,7 @@ public class ModelHelper {
 			String location) {
 		Repository repository = repositoryDocument.getRepository();
 
-		for (Property property : repository.getProperties().getPropertyArray()) {
+		for (Property property : repository.getProperties().getPropertyList()) {
 			if ("p2.timestamp".equals(property.getName())) {
 				property.setValue(String.valueOf(new Date().getTime()));
 			}
@@ -111,7 +111,7 @@ public class ModelHelper {
 
 	private Child createChild(Children children, String location) {
 
-		for (Child child : children.getChildArray()) {
+		for (Child child : children.getChildList()) {
 			if (child.getLocation().equals(location)) {
 				return null;
 			}

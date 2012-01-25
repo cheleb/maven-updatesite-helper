@@ -7,13 +7,15 @@ import noNamespace.RepositoryDocument;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.ChannelSftp.LsEntry;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.Session;
-import com.jcraft.jsch.ChannelSftp.LsEntry;
 
 public class JschTest {
 	public static void main(String[] args) throws Throwable {
 
+		String pass = args[0];
+		
 		JSch jsch = new JSch();
 		
     	String host="hortus";
@@ -26,7 +28,7 @@ public class JschTest {
         String userhome = System.getProperty("user.home");
 
         jsch.setKnownHosts(userhome+"/.ssh/known_hosts");
-        jsch.addIdentity(userhome+"/.ssh/id_rsa", "che1e8AtGridDynamics");
+        jsch.addIdentity(userhome+"/.ssh/id_rsa", pass);
 
         
         
@@ -39,7 +41,8 @@ public class JschTest {
         ChannelSftp c=(ChannelSftp)channel;
         
         String path = "/var/www/updates/agilent/m2e-alfresco";
-        Vector ls = c.ls(path);
+        @SuppressWarnings("unchecked")
+		Vector<LsEntry> ls = c.ls(path);
         for (Object object : ls) {
 			if (object instanceof LsEntry) {
 				LsEntry lsEntry = (LsEntry) object;
@@ -50,7 +53,7 @@ public class JschTest {
         
 		c.cd(path);
 		
-		Vector ls2 = c.ls(".");
+
         
         InputStream inputStream = c.get("compositeContent.xml");
         if(inputStream!=null) {

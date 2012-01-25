@@ -5,11 +5,11 @@ import java.util.Vector;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelSftp;
+import com.jcraft.jsch.ChannelSftp.LsEntry;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
-import com.jcraft.jsch.ChannelSftp.LsEntry;
 
 public class Sftp {
 
@@ -23,11 +23,11 @@ public class Sftp {
 		this.identity = identity;
 	}
 
-	public void openSession(String user, String pass, String host)
+	public void openSession(String user, String pass, String host, int port)
 			throws JSchException {
 		JSch jsch = new JSch();
 
-		session = jsch.getSession(user, host, 22);
+		session = jsch.getSession(user, host, port);
 
 		jsch.setKnownHosts(knownHost);
 		jsch.addIdentity(identity, pass);
