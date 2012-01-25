@@ -166,6 +166,7 @@ public class ModelHelper {
 
 			IOUtil.copyCompletely(
 					repositoryDocument.newInputStream(xmlOptions), outputStream);
+			outputStream.write("\n".getBytes(Charset.forName("UTF-8")));
 		} catch (IOException e) {
 			throw new ModelException(e.getLocalizedMessage(), e);
 		}
