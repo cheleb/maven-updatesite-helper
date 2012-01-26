@@ -3,7 +3,7 @@ package org.eclipse.maven.mojo.updatesite.sftp;
 import java.io.InputStream;
 import java.util.List;
 
-import org.eclipse.maven.mojo.updatesite.Logger;
+import org.eclipse.maven.mojo.updatesite.logger.Logger;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelSftp;

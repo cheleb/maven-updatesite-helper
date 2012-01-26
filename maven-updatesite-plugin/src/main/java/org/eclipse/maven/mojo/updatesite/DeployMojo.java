@@ -18,6 +18,7 @@ import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
 import org.eclipse.maven.mojo.updatesite.ModelHelper.TYPE;
 import org.eclipse.maven.mojo.updatesite.configuration.Site;
+import org.eclipse.maven.mojo.updatesite.logger.Logger;
 import org.eclipse.maven.mojo.updatesite.sftp.Sftp;
 
 import com.jcraft.jsch.JSchException;
@@ -147,7 +148,6 @@ public class DeployMojo extends AbstractMojo {
 		String basePath = matcher.group(SFTP_PATTERN_PATH);
 
 		Sftp sftp = new Sftp(new Logger() {
-
 			@Override
 			public void info(String message) {
 				getLog().info(message);
