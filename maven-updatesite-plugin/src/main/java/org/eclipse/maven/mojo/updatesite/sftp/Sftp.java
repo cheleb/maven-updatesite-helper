@@ -60,7 +60,16 @@ public class Sftp {
 	}
 
 	public boolean fileDoesNotExist(String filename) throws SftpException {
-		Vector<LsEntry> ls = ls(".");
+        String dir;
+		int i = filename.lastIndexOf('/');
+		if (i > 0) {
+			dir=filename.substring(0,i);
+			filename = filename.substring(i+1);
+		}else {
+			dir=".";
+		}
+		Vector<LsEntry> ls = ls(dir);
+
 		for (Object object : ls) {
 			if (object instanceof LsEntry) {
 				LsEntry lsEntry = (LsEntry) object;
@@ -96,8 +105,8 @@ public class Sftp {
 		}
 	}
 
-	
-	public void rmtree(String folder, boolean deleteFolder) throws SftpException {
+	public void rmtree(String folder, boolean deleteFolder)
+			throws SftpException {
 		System.out.println("deleting content of: " + folder);
 		Vector<LsEntry> ls = ls(folder);
 		for (LsEntry lsEntry : ls) {
@@ -108,7 +117,7 @@ public class Sftp {
 			String filename = folder + "/" + lsEntry.getFilename();
 			if (lsEntry.getAttrs().isDir()) {
 				rmtree(filename, deleteFolder);
-				if(deleteFolder) {
+				if (deleteFolder) {
 					sftpChannel.rmdir(filename);
 				}
 			} else {
