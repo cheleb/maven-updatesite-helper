@@ -59,27 +59,31 @@ public class Sftp {
 		sftpChannel.rmdir(path);
 	}
 
-	public boolean fileDoesNotExist(String filename) throws SftpException {
-        String dir;
-		int i = filename.lastIndexOf('/');
-		if (i > 0) {
-			dir=filename.substring(0,i);
-			filename = filename.substring(i+1);
-		}else {
-			dir=".";
-		}
-		Vector<LsEntry> ls = ls(dir);
-
-		for (Object object : ls) {
-			if (object instanceof LsEntry) {
-				LsEntry lsEntry = (LsEntry) object;
-				if (lsEntry.getFilename().equals(filename)) {
-					return false;
-				}
-
+	public boolean fileExists(String filename) throws SftpException {
+		 String dir;
+			int i = filename.lastIndexOf('/');
+			if (i > 0) {
+				dir=filename.substring(0,i);
+				filename = filename.substring(i+1);
+			}else {
+				dir=".";
 			}
-		}
-		return true;
+			Vector<LsEntry> ls = ls(dir);
+
+			for (Object object : ls) {
+				if (object instanceof LsEntry) {
+					LsEntry lsEntry = (LsEntry) object;
+					if (lsEntry.getFilename().equals(filename)) {
+						return true;
+					}
+
+				}
+			}
+			return false;
+	}
+	
+	public boolean fileDoesNotExist(String filename) throws SftpException {
+       return !fileExists(filename);
 	}
 
 	public void mkdir(String path) throws SftpException {
@@ -127,5 +131,21 @@ public class Sftp {
 		}
 
 	}
+
+	public String getCurrentFolderName() throws SftpException {
+		String path = sftpChannel.pwd();
+		int i = path.lastIndexOf("/");
+		if(i>0) {
+			return path.substring(i+1);
+		}
+		return path;
+		
+	}
+
+	public String pwd() throws SftpException {
+		return sftpChannel.pwd();
+	}
+
+	
 
 }

@@ -20,6 +20,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
+import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,6 +32,8 @@ import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Server;
 import org.apache.maven.settings.Settings;
+import org.eclipse.maven.mojo.updatesite.ModelHelper.TYPE;
+import org.eclipse.maven.mojo.updatesite.configuration.Site;
 import org.eclipse.maven.mojo.updatesite.sftp.Sftp;
 
 import com.jcraft.jsch.JSchException;
@@ -50,32 +54,18 @@ public class DeployMojo extends AbstractMojo {
 	private MavenProject mavenProject;
 
 	/**
-	 * @parameter
+	 * The current user system settings for use in Maven.
+	 * 
+	 * @parameter expression="${settings}"
 	 * @required
+	 * @readonly
 	 */
-	private String repositoryName;
+	private Settings settings;
 
 	/**
 	 * @parameter
-	 * @required
 	 */
-	private String parentURL;
-	
-	
-	 /** The current user system settings for use in Maven.
-     *
-     * @parameter expression="${settings}"
-     * @required
-     * @readonly
-     */
-    private Settings settings;
-
-
-    /**
-     * @parameter
-     */
-    private String serverId;
-
+	private List<Site> sites;
 	/**
 	 * @parameter default-value="${user.home}/.ssh/known_hosts"
 	 * @required
@@ -98,49 +88,55 @@ public class DeployMojo extends AbstractMojo {
 
 	private ModelHelper modelHelper = new ModelHelper();
 
-
 	static final Pattern SFTP_PATTERN = Pattern
 			.compile("^sftp://([^/^:)]+)\\:?(\\d+)?(.*)$");
 
 	public void execute() throws MojoExecutionException {
 
-		Matcher matcher = DeployMojo.SFTP_PATTERN.matcher(parentURL);
+		for (Site site : sites) {
+			deploy(site);
+		}
+
+	}
+
+	private void deploy(Site site) throws MojoExecutionException {
+
+		Matcher matcher = DeployMojo.SFTP_PATTERN.matcher(site.getBaseURL());
 		if (!matcher.matches()) {
-			throw new MojoExecutionException(parentURL
+			throw new MojoExecutionException(site.getBaseURL()
 					+ " is not a valid sftp url");
 		}
 		String host = matcher.group(1);
 		String portAsString = matcher.group(2);
 		int port;
-		if(portAsString==null) {
-			port=22;
-		}else {
+		if (portAsString == null) {
+			port = 22;
+		} else {
 			port = Integer.parseInt(portAsString);
 		}
-		String parentPath = matcher.group(3);
+		String basePath = matcher.group(3);
 
 		Sftp sftp = new Sftp(knownHost, identity);
 
-		Server server = settings.getServer(serverId);
-		if(server==null) {
-			throw new MojoExecutionException("Could not find serverId: \"" + serverId + "\"");
+		Server server = settings.getServer(site.getServerId());
+		if (server == null) {
+			throw new MojoExecutionException("Could not find serverId: \""
+					+ site.getServerId() + "\"");
 		}
-		
+
 		String pass = server.getPassphrase();
-		
-		if(pass ==null) {
+
+		if (pass == null) {
 			throw new MojoExecutionException("Passphrase could not be null");
 		}
-		
+
 		String user = server.getUsername();
-		
-		
-		
+
 		try {
 
 			sftp.openSession(user, pass, host, port);
 
-			boolean newRepo = initRepository(parentPath, sftp);
+			boolean newRepo = initRepository(site, basePath, sftp);
 
 			String childLocation = initChildLocation(sftp);
 
@@ -149,8 +145,8 @@ public class DeployMojo extends AbstractMojo {
 			RepositoryDocument repositoryDocument;
 
 			if (newRepo || sftp.fileDoesNotExist("compositeContent.xml")) {
-				repositoryDocument = modelHelper
-						.newRepositoryDocument(repositoryName, ModelHelper.TYPE.ARTIFACT);
+				repositoryDocument = modelHelper.newRepositoryDocument(
+						site.getName(), ModelHelper.TYPE.ARTIFACT);
 			} else {
 
 				InputStream inputStream = sftp.get("compositeContent.xml");
@@ -162,11 +158,9 @@ public class DeployMojo extends AbstractMojo {
 			modelHelper.updateChild(repositoryDocument,
 					mavenProject.getVersion());
 
-			sftp.put(modelHelper.getInputStream(repositoryDocument,
-					ModelHelper.TYPE.ARTIFACT), "compositeArtifacts.xml");
-			repositoryDocument.getRepository().setType(ModelHelper.TYPE.METADATA.asString);
-			sftp.put(modelHelper.getInputStream(repositoryDocument,
-					ModelHelper.TYPE.METADATA), "compositeContent.xml");
+			updateCompositeMetafiles(sftp, repositoryDocument);
+
+			updateParentRepo(site, sftp);
 
 		} catch (JSchException e) {
 			throw new MojoExecutionException(e.getLocalizedMessage(), e);
@@ -176,6 +170,49 @@ public class DeployMojo extends AbstractMojo {
 			throw new MojoExecutionException(e.getLocalizedMessage(), e);
 		} finally {
 			sftp.disconnect();
+		}
+
+	}
+
+	protected void updateCompositeMetafiles(Sftp sftp,
+			RepositoryDocument repositoryDocument) throws SftpException {
+		putRepositoryFile(sftp, repositoryDocument, ModelHelper.TYPE.ARTIFACT);
+		putRepositoryFile(sftp, repositoryDocument, ModelHelper.TYPE.METADATA);
+
+	}
+
+	private void putRepositoryFile(Sftp sftp,
+			RepositoryDocument repositoryDocument, TYPE type)
+			throws SftpException {
+		repositoryDocument.getRepository().setType(type.asString);
+		sftp.put(modelHelper.getInputStream(repositoryDocument, type),
+				type.filename);
+	}
+
+	private void updateParentRepo(Site site, Sftp sftp) throws SftpException {
+		String currentRepoName = sftp.getCurrentFolderName();
+		sftp.cd("..");
+		String pwd = sftp.pwd();
+		getLog().info("Updating " + currentRepoName + " in " + pwd);
+		if (sftp.fileExists("compositeArtifacts.xml")) {
+			InputStream inputStream = sftp.get("compositeContent.xml");
+
+			RepositoryDocument repositoryDocument = modelHelper
+					.parseCompositeContent(inputStream);
+			boolean b = modelHelper.updateChild(repositoryDocument,
+					site.getName());
+			if (b) {
+				getLog().info("Added");
+			} else {
+				getLog().info("Updated");
+			}
+
+			updateCompositeMetafiles(sftp, repositoryDocument);
+
+			updateParentRepo(site, sftp);
+
+		} else {
+			getLog().debug("Base repo: " + pwd);
 		}
 
 	}
@@ -216,18 +253,64 @@ public class DeployMojo extends AbstractMojo {
 		return childLocation;
 	}
 
-	protected boolean initRepository(String parentPath, Sftp sftp)
+	protected boolean initRepository(Site site, String basePath, Sftp sftp)
 			throws SftpException {
-		sftp.cd(parentPath);
+
+		createRemotePath(basePath, sftp);
+
+		if (site.getParent() != null) {
+			String parentPath = site.getParent();
+			createRemoteRepo(parentPath, sftp);
+		}
+
 		boolean newRepo = false;
-		if (sftp.fileDoesNotExist(repositoryName)) {
-			sftp.mkdir(repositoryName);
-			getLog().info("Create new repo: " + repositoryName);
+		if (sftp.fileDoesNotExist(site.getName())) {
+			sftp.mkdir(site.getName());
+			getLog().info("Create new repo: " + site.getName());
 			newRepo = true;
 		}
 
-		sftp.cd(repositoryName);
+		sftp.cd(site.getName());
 		return newRepo;
+	}
+
+	protected void createRemotePath(String path, Sftp sftp)
+			throws SftpException {
+		try {
+			sftp.cd(path);
+		} catch (SftpException e) {
+			StringTokenizer tokenizer = new StringTokenizer(path, "/");
+			sftp.cd("/");
+			while (tokenizer.hasMoreTokens()) {
+				String folder = tokenizer.nextToken();
+				if (sftp.fileDoesNotExist(folder)) {
+					sftp.mkdir(folder);
+				}
+				sftp.cd(folder);
+			}
+		}
+	}
+
+	protected void createRemoteRepo(String path, Sftp sftp)
+			throws SftpException {
+		try {
+			sftp.cd(path);
+		} catch (SftpException e) {
+			StringTokenizer tokenizer = new StringTokenizer(path, "/");
+			while (tokenizer.hasMoreTokens()) {
+				String folder = tokenizer.nextToken();
+				if (sftp.fileDoesNotExist(folder)) {
+					sftp.mkdir(folder);
+				}
+				sftp.cd(folder);
+				if (sftp.fileDoesNotExist(ModelHelper.TYPE.ARTIFACT.filename)) {
+					RepositoryDocument repositoryDocument = modelHelper
+							.newRepositoryDocument(folder,
+									ModelHelper.TYPE.METADATA);
+					updateCompositeMetafiles(sftp, repositoryDocument);
+				}
+			}
+		}
 	}
 
 }

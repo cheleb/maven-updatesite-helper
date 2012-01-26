@@ -36,13 +36,22 @@ public class ModelHelper {
 
 	public enum TYPE {
 		METADATA(
-				"org.eclipse.equinox.internal.p2.metadata.repository.CompositeMetadataRepository"), ARTIFACT(
-				"org.eclipse.equinox.internal.p2.artifact.repository.CompositeArtifactRepository");
+				"org.eclipse.equinox.internal.p2.metadata.repository.CompositeMetadataRepository",
+				"compositeContent.xml"), ARTIFACT(
+				"org.eclipse.equinox.internal.p2.artifact.repository.CompositeArtifactRepository",
+				"compositeArtifacts.xml");
 
 		String asString;
 
-		TYPE(String type) {
+		String filename;
+
+		TYPE(String type, String filename) {
 			this.asString = type;
+			this.filename = filename;
+		}
+
+		public String filename() {
+			return filename;
 		}
 
 	}
