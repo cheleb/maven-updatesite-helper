@@ -1,7 +1,9 @@
 package org.eclipse.maven.mojo.updatesite.sftp;
 
 import java.io.InputStream;
-import java.util.Vector;
+import java.util.List;
+
+import org.eclipse.maven.mojo.updatesite.Logger;
 
 import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelSftp;
@@ -13,12 +15,14 @@ import com.jcraft.jsch.SftpException;
 
 public class Sftp {
 
-	final private String knownHost;
-	final private String identity;
+	private final String knownHost;
+	private final String identity;
 	private ChannelSftp sftpChannel;
 	private Session session;
+	private Logger logger;
 
-	public Sftp(String knownHost, String identity) {
+	public Sftp(Logger logger, String knownHost, String identity) {
+		this.logger = logger;
 		this.knownHost = knownHost;
 		this.identity = identity;
 	}
@@ -47,7 +51,7 @@ public class Sftp {
 	}
 
 	@SuppressWarnings("unchecked")
-	public Vector<LsEntry> ls(String path) throws SftpException {
+	public List<LsEntry> ls(String path) throws SftpException {
 		return sftpChannel.ls(path);
 	}
 
@@ -59,31 +63,33 @@ public class Sftp {
 		sftpChannel.rmdir(path);
 	}
 
-	public boolean fileExists(String filename) throws SftpException {
-		 String dir;
-			int i = filename.lastIndexOf('/');
-			if (i > 0) {
-				dir=filename.substring(0,i);
-				filename = filename.substring(i+1);
-			}else {
-				dir=".";
-			}
-			Vector<LsEntry> ls = ls(dir);
+	public boolean fileExists(String path) throws SftpException {
+		String dir;
+		String filename;
+		int i = path.lastIndexOf('/');
+		if (i > 0) {
+			dir = path.substring(0, i);
+			filename = path.substring(i + 1);
+		} else {
+			dir = ".";
+			filename = path;
+		}
+		List<LsEntry> ls = ls(dir);
 
-			for (Object object : ls) {
-				if (object instanceof LsEntry) {
-					LsEntry lsEntry = (LsEntry) object;
-					if (lsEntry.getFilename().equals(filename)) {
-						return true;
-					}
-
+		for (Object object : ls) {
+			if (object instanceof LsEntry) {
+				LsEntry lsEntry = (LsEntry) object;
+				if (lsEntry.getFilename().equals(filename)) {
+					return true;
 				}
+
 			}
-			return false;
+		}
+		return false;
 	}
-	
+
 	public boolean fileDoesNotExist(String filename) throws SftpException {
-       return !fileExists(filename);
+		return !fileExists(filename);
 	}
 
 	public void mkdir(String path) throws SftpException {
@@ -111,8 +117,8 @@ public class Sftp {
 
 	public void rmtree(String folder, boolean deleteFolder)
 			throws SftpException {
-		System.out.println("deleting content of: " + folder);
-		Vector<LsEntry> ls = ls(folder);
+		logger.info("Deleting content of: " + folder);
+		List<LsEntry> ls = ls(folder);
 		for (LsEntry lsEntry : ls) {
 			if (".".equals(lsEntry.getFilename())
 					|| "..".equals(lsEntry.getFilename())) {
@@ -125,7 +131,7 @@ public class Sftp {
 					sftpChannel.rmdir(filename);
 				}
 			} else {
-				System.out.println("deleting: " + filename);
+				logger.info("Deleting: " + filename);
 				sftpChannel.rm(filename);
 			}
 		}
@@ -134,18 +140,16 @@ public class Sftp {
 
 	public String getCurrentFolderName() throws SftpException {
 		String path = sftpChannel.pwd();
-		int i = path.lastIndexOf("/");
-		if(i>0) {
-			return path.substring(i+1);
+		int i = path.lastIndexOf('/');
+		if (i > 0) {
+			return path.substring(i + 1);
 		}
 		return path;
-		
+
 	}
 
 	public String pwd() throws SftpException {
 		return sftpChannel.pwd();
 	}
-
-	
 
 }

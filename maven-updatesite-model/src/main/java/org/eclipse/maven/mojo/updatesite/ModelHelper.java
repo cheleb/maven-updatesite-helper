@@ -19,21 +19,37 @@ import org.apache.xmlbeans.XmlException;
 import org.apache.xmlbeans.XmlOptions;
 import org.apache.xmlbeans.impl.common.IOUtil;
 
+/**
+ * Helper class to Manipulate the Composite repository metadata files.
+ * 
+ * @author chelebithil
+ * 
+ */
 public class ModelHelper {
 
 	/**
-     * 
-     */
+	 * UTF-8.
+	 */
+	private static final String UTF_8 = "UTF-8";
+	/**
+	 * XML Prolog.
+	 */
 	private static final String XML_VERSION_1_0_ENCODING_UTF_8 = "<?xml version='1.0' encoding='UTF-8'?>\n";
 	/**
-	 * 
+	 * "compositeMetadataRepository" PI.
 	 */
 	private static final String COMPOSITE_METADATA_REPOSITORY_VERSION_1_0_0 = "<?compositeMetadataRepository version='1.0.0'?>\n";
 	/**
-	 * 
+	 * "compositeArtifactRepository" PI.
 	 */
 	private static final String COMPOSITE_ARTIFACT_REPOSITORY_VERSION_1_0_0 = "<?compositeArtifactRepository version='1.0.0'?>\n";
 
+	/**
+	 * Enum to represent the 2 kinds of metadata files.
+	 * 
+	 * @author chelebithil
+	 * 
+	 */
 	public enum TYPE {
 		METADATA(
 				"org.eclipse.equinox.internal.p2.metadata.repository.CompositeMetadataRepository",
@@ -41,34 +57,76 @@ public class ModelHelper {
 				"org.eclipse.equinox.internal.p2.artifact.repository.CompositeArtifactRepository",
 				"compositeArtifacts.xml");
 
-		String asString;
+		/**
+		 * Class name used in the file.
+		 */
+		private String className;
 
-		String filename;
+		/**
+		 * Filename
+		 */
+		private String filename;
 
-		TYPE(String type, String filename) {
-			this.asString = type;
+		/**
+		 * Constructor.
+		 * 
+		 * @param className
+		 * @param filename
+		 */
+		private TYPE(String className, String filename) {
+			this.className = className;
 			this.filename = filename;
 		}
 
-		public String filename() {
+		/**
+		 * Getter to {@link TYPE#className}.
+		 * 
+		 * @return qualified className
+		 */
+		public String getClassName() {
+			return className;
+		}
+
+		/**
+		 * Getter for {@link TYPE#filename}.
+		 * 
+		 * @return filename.
+		 */
+		public String getFilename() {
 			return filename;
 		}
 
 	}
 
+	/**
+	 * {@link XmlOptions} to customize the serialization.
+	 */
 	private XmlOptions xmlOptions;
 
+	/**
+	 * Constructor.
+	 */
 	public ModelHelper() {
 		xmlOptions = new XmlOptions();
 		xmlOptions.setSavePrettyPrint();
 		xmlOptions.setSaveNoXmlDecl();
 	}
 
+	/**
+	 * Build a {@link RepositoryDocument} with given properties (p2.compressed,
+	 * p2.timestamp) and children.
+	 * 
+	 * @param name
+	 *            of the repository
+	 * @param type
+	 *            Metadata or Artifact
+	 * @return inited repository
+	 */
 	public RepositoryDocument newRepositoryDocument(String name, TYPE type) {
 		RepositoryDocument document = RepositoryDocument.Factory.newInstance();
 		Repository repository = document.addNewRepository();
 
-		repository.setType(type.asString);
+		repository.setType(type.getClassName());
 
 		repository.setVersion("1.0.0");
 		repository.setName(name);
@@ -88,12 +146,19 @@ public class ModelHelper {
 		return document;
 	}
 
+	/**
+	 * Parse repository.
+	 * 
+	 * @param resourceAsStream
+	 *            to parse
+	 * @return repository.
+	 */
 	public RepositoryDocument parseCompositeContent(InputStream resourceAsStream) {
 		try {
-			XmlOptions xmlOptions = new XmlOptions();
-			xmlOptions.setLoadStripProcinsts();
+			XmlOptions xmlOptionsNoPI = new XmlOptions();
+			xmlOptionsNoPI.setLoadStripProcinsts();
 			return RepositoryDocument.Factory.parse(resourceAsStream,
-					xmlOptions);
+					xmlOptionsNoPI);
 		} catch (XmlException e) {
 			throw new ModelException(e.getLocalizedMessage(), e);
 		} catch (IOException e) {
@@ -102,7 +167,16 @@ public class ModelHelper {
 
 	}
 
-	public boolean updateChild(RepositoryDocument repositoryDocument,
+	/**
+	 * Append a child location. Update the p2.timestamp.
+	 * 
+	 * @param repositoryDocument
+	 *            to update.
+	 * @param location
+	 *            of the child
+	 * @return true if the child is newly created
+	 */
+	public boolean appendChild(RepositoryDocument repositoryDocument,
 			String location) {
 		Repository repository = repositoryDocument.getRepository();
 
@@ -118,6 +192,15 @@ public class ModelHelper {
 
 	}
 
+	/**
+	 * Create a child if it doesn't already exist.
+	 * 
+	 * @param children
+	 *            children node to support addition
+	 * @param location
+	 *            of the new child node
+	 * @return child node if newly created null otherwise
+	 */
 	private Child createChild(Children children, String location) {
 
 		for (Child child : children.getChildList()) {
@@ -131,10 +214,20 @@ public class ModelHelper {
 		return child;
 	}
 
+	/**
+	 * Save document as given type.
+	 * 
+	 * @param document
+	 *            to save
+	 * @param type
+	 *            to apply
+	 * @param out
+	 *            to output
+	 */
 	public void save(RepositoryDocument document, ModelHelper.TYPE type,
 			PrintStream out) {
 
-		out.print(new String(XML_VERSION_1_0_ENCODING_UTF_8));
+		out.print(XML_VERSION_1_0_ENCODING_UTF_8);
 		switch (type) {
 		case METADATA:
 			out.print(COMPOSITE_METADATA_REPOSITORY_VERSION_1_0_0);
@@ -159,15 +252,15 @@ public class ModelHelper {
 		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 		try {
 			outputStream.write(XML_VERSION_1_0_ENCODING_UTF_8.getBytes(Charset
-					.forName("UTF-8")));
+					.forName(UTF_8)));
 			switch (type) {
 			case METADATA:
 				outputStream.write(COMPOSITE_METADATA_REPOSITORY_VERSION_1_0_0
-						.getBytes(Charset.forName("UTF-8")));
+						.getBytes(Charset.forName(UTF_8)));
 				break;
 			case ARTIFACT:
 				outputStream.write(COMPOSITE_ARTIFACT_REPOSITORY_VERSION_1_0_0
-						.getBytes(Charset.forName("UTF-8")));
+						.getBytes(Charset.forName(UTF_8)));
 				break;
 			default:
 				break;
@@ -175,7 +268,7 @@ public class ModelHelper {
 
 			IOUtil.copyCompletely(
 					repositoryDocument.newInputStream(xmlOptions), outputStream);
-			outputStream.write("\n".getBytes(Charset.forName("UTF-8")));
+			outputStream.write("\n".getBytes(Charset.forName(UTF_8)));
 		} catch (IOException e) {
 			throw new ModelException(e.getLocalizedMessage(), e);
 		}

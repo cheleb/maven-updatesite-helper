@@ -30,9 +30,9 @@ public class XMLBeanTest {
 				.parseCompositeContent(XMLBeanTest.class
 						.getResourceAsStream("/compositeContent.xml"));
 		Assert.assertFalse("Child should exist!",
-				modelHelper.updateChild(repositoryDocument, "0.0.2"));
+				modelHelper.appendChild(repositoryDocument, "0.0.2"));
 		Assert.assertTrue("Child should by created!",
-				modelHelper.updateChild(repositoryDocument, "0.0.3"));
+				modelHelper.appendChild(repositoryDocument, "0.0.3"));
 
 		modelHelper.save(repositoryDocument, ModelHelper.TYPE.ARTIFACT,
 				System.out);

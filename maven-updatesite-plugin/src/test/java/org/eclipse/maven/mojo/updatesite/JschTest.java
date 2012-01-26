@@ -63,7 +63,7 @@ public class JschTest {
         	RepositoryDocument repositoryDocument = modelHelper.parseCompositeContent(inputStream);
         	String name = repositoryDocument.getRepository().getName();
         	System.out.println("name: " + name);
-        	System.out.println(modelHelper.updateChild(repositoryDocument, "0.0.1-SNAPSHOT"));
+        	System.out.println(modelHelper.appendChild(repositoryDocument, "0.0.1-SNAPSHOT"));
         	modelHelper.save(repositoryDocument, ModelHelper.TYPE.ARTIFACT, System.out);
         	c.put(modelHelper.getInputStream(repositoryDocument, ModelHelper.TYPE.ARTIFACT), "compositeArtifacts.xml");
         	c.put(modelHelper.getInputStream(repositoryDocument, ModelHelper.TYPE.METADATA), "compositeContent.xml");
