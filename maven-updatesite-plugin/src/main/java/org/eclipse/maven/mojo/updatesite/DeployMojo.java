@@ -79,7 +79,7 @@ public class DeployMojo extends AbstractMojo {
 	/**
 	 * Location of the site.
 	 * 
-	 * @parameter expression="${project.build.directory}/site"
+	 * @parameter expression="${project.build.directory}/repository"
 	 * @required
 	 */
 	private File siteDirectory;
